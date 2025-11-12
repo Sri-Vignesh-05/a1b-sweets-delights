@@ -86,10 +86,23 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     background-image: 
-      radial-gradient(circle at 10% 20%, hsl(var(--secondary) / 0.03) 0%, transparent 20%),
-      radial-gradient(circle at 90% 80%, hsl(var(--primary) / 0.03) 0%, transparent 20%),
-      radial-gradient(circle at 50% 50%, hsl(var(--accent) / 0.02) 0%, transparent 50%);
+      radial-gradient(circle at 15% 15%, hsl(var(--primary) / 0.12) 0%, transparent 8%),
+      radial-gradient(circle at 85% 20%, hsl(var(--secondary) / 0.15) 0%, transparent 10%),
+      radial-gradient(circle at 10% 85%, hsl(var(--accent) / 0.1) 0%, transparent 12%),
+      radial-gradient(circle at 90% 90%, hsl(var(--primary) / 0.08) 0%, transparent 8%),
+      radial-gradient(circle at 50% 50%, hsl(var(--secondary) / 0.06) 0%, transparent 25%),
+      repeating-conic-gradient(from 0deg at 30% 40%, 
+        transparent 0deg, 
+        hsl(var(--primary) / 0.05) 2deg, 
+        transparent 4deg, 
+        transparent 10deg),
+      repeating-conic-gradient(from 45deg at 70% 60%, 
+        transparent 0deg, 
+        hsl(var(--accent) / 0.04) 3deg, 
+        transparent 6deg, 
+        transparent 12deg);
     background-attachment: fixed;
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 200px 200px, 250px 250px;
   }
 }
 
