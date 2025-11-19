@@ -1,17 +1,11 @@
-const express = require("express");
-const router = express.Router();
-const client = require("../db");
+const express8 = require('express');
+const orderCtrl = require('../controllers/ordersController');
+const routerOrder = express8.Router();
 
-router.post("/", async (req, res) => {
-  try {
-    const db = client.db("a1b_store");
 
-    await db.collection("orders").insertOne(req.body);
+routerOrder.post('/', orderCtrl.createOrder);
+routerOrder.get('/', orderCtrl.getOrders);
+routerOrder.get('/:orderId/items', orderCtrl.getOrderItems);
 
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
-module.exports = router;
+module.exports = routerOrder;

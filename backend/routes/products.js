@@ -1,15 +1,10 @@
-const express = require("express");
-const router = express.Router();
-const client = require("../db");
+const express6 = require('express');
+const prodCtrl = require('../controllers/productsController');
+const routerProd = express6.Router();
 
-router.get("/", async (req, res) => {
-  try {
-    const db = client.db("a1b_store");
-    const products = await db.collection("products").find().toArray();
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
-module.exports = router;
+routerProd.get('/', prodCtrl.getProducts);
+routerProd.get('/:id', prodCtrl.getProduct);
+routerProd.post('/', prodCtrl.createProduct);
+routerProd.put('/:id', prodCtrl.updateProduct);
+routerProd.delete('/:id', prodCtrl.deleteProduct);
