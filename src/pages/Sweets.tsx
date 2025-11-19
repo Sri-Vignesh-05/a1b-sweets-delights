@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { TopNav } from "@/components/TopNav";
 import { MainNav } from "@/components/MainNav";
 import { Footer } from "@/components/Footer";
@@ -6,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import ladoo1 from "@/assets/ladoo-1.jpg";
 import ladoo2 from "@/assets/ladoo-2.jpg";
 import barfi1 from "@/assets/barfi-1.jpg";
@@ -237,6 +240,94 @@ const sweetsProducts: Product[] = [
 
 const ProductCard = ({ product }: { product: Product }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const navigate = useNavigate();
+
+  const handleAddToCart = async () => {
+    setAdding(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Login required",
+          description: "Please login to add items to cart",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      // Get or create product in products table
+      const priceNumber = parseFloat(product.price.replace(/[₹,\/kg]/g, ""));
+      const { data: existingProduct, error: fetchError } = await supabase
+        .from("products")
+        .select("id")
+        .eq("name", product.name)
+        .maybeSingle();
+
+      let productId = existingProduct?.id;
+
+      if (!existingProduct) {
+        const { data: newProduct, error: insertError } = await supabase
+          .from("products")
+          .insert({
+            name: product.name,
+            category: product.category,
+            price: priceNumber,
+            image_url: product.image1,
+            description: product.description,
+            rating: product.rating,
+          })
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+        productId = newProduct.id;
+      }
+
+      // Check if item already in cart
+      const { data: existingCart, error: cartFetchError } = await supabase
+        .from("cart_items")
+        .select("id, quantity")
+        .eq("user_id", session.user.id)
+        .eq("product_id", productId)
+        .maybeSingle();
+
+      if (existingCart) {
+        // Update quantity
+        const { error: updateError } = await supabase
+          .from("cart_items")
+          .update({ quantity: existingCart.quantity + 1 })
+          .eq("id", existingCart.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Add new item
+        const { error: insertError } = await supabase
+          .from("cart_items")
+          .insert({
+            user_id: session.user.id,
+            product_id: productId,
+            quantity: 1,
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <Card
@@ -266,7 +357,9 @@ const ProductCard = ({ product }: { product: Product }) => {
         </p>
         <div className="flex items-center justify-between">
           <span className="text-primary font-bold text-lg">{product.price}</span>
-          <Button size="sm">Add to Cart</Button>
+          <Button size="sm" onClick={handleAddToCart} disabled={adding}>
+            {adding ? "Adding..." : "Add to Cart"}
+          </Button>
         </div>
       </div>
     </Card>

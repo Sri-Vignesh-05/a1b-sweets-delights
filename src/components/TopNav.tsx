@@ -6,22 +6,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 export const TopNav = () => {
   const [selectedLocation, setSelectedLocation] = useState("Select Location");
   const [selectedOutlet, setSelectedOutlet] = useState("Our Outlets");
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAuthClick = () => {
+    if (user) {
+      signOut();
+    } else {
+      navigate("/auth");
+    }
+  };
 
   return (
     <div className="fixed top-0 left-0 right-0 bg-nav border-b border-border shadow-nav z-50">
@@ -75,42 +76,19 @@ export const TopNav = () => {
               <span className="hidden md:inline text-sm">+91 123 456 7890</span>
             </a>
 
-            <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <span className="hidden sm:inline">Login</span>
-                  <span className="sm:hidden">Login</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Login to A1B</DialogTitle>
-                  <DialogDescription>
-                    Enter your credentials to access your account
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="your@email.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" placeholder="••••••••" />
-                  </div>
-                  <Button className="w-full" onClick={() => setIsLoginOpen(false)}>
-                    Login
-                  </Button>
-                  <p className="text-sm text-center text-muted-foreground">
-                    Don't have an account?{" "}
-                    <button className="text-primary hover:underline">Sign up</button>
-                  </p>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button variant="ghost" size="sm" onClick={handleAuthClick}>
+              <span className="hidden sm:inline">{user ? "Logout" : "Login"}</span>
+              <span className="sm:hidden">{user ? "Logout" : "Login"}</span>
+            </Button>
 
-            <Button variant="ghost" size="icon">
-              <ShoppingCart className="h-5 w-5" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => navigate("/cart")}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline">Cart</span>
             </Button>
           </div>
         </div>
