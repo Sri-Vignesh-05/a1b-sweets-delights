@@ -38,7 +38,7 @@ const AboutUs = () => {
         <section className="container mx-auto px-4 py-16">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              <span className="gradient-text">Our Story</span>
+              <span className="gradient-text">Our journey</span>
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed">
               Since 1995, A1B has been serving the finest Indian sweets and savouries, 
