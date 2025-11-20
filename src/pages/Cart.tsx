@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { cartService, ordersService, authService, Product } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,20 +15,15 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Trash2, Minus, Plus } from "lucide-react";
 
-interface CartItem {
-  id: string;
+interface CartItemDisplay {
+  _id: string;
   quantity: number;
   product_id: string;
-  products: {
-    id: string;
-    name: string;
-    price: number;
-    image_url: string;
-  };
+  product: Product;
 }
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItemDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [orderForm, setOrderForm] = useState({
@@ -45,8 +40,7 @@ const Cart = () => {
   }, []);
 
   const checkAuthAndFetchCart = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    if (!authService.isAuthenticated()) {
       toast({ title: "Please login", description: "You need to login to view your cart." });
       navigate("/auth");
       return;
@@ -56,13 +50,15 @@ const Cart = () => {
 
   const fetchCartItems = async () => {
     try {
-      const { data, error } = await supabase
-        .from("cart_items")
-        .select("*, products(*)")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setCartItems(data || []);
+      const items = await cartService.getCart();
+      // Transform items - product_id is populated from backend
+      const displayItems = items.map((item: any) => ({
+        _id: item._id,
+        quantity: item.quantity,
+        product_id: item.product_id?._id || item.product_id,
+        product: item.product_id || {}, // Backend populates product_id with full product data
+      }));
+      setCartItems(displayItems);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -74,16 +70,10 @@ const Cart = () => {
     if (newQuantity < 1) return;
 
     try {
-      const { error } = await supabase
-        .from("cart_items")
-        .update({ quantity: newQuantity })
-        .eq("id", itemId);
-
-      if (error) throw error;
-
+      await cartService.updateQuantity(itemId, newQuantity);
       setCartItems((prev) =>
         prev.map((item) =>
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
+          item._id === itemId ? { ...item, quantity: newQuantity } : item
         )
       );
     } catch (error: any) {
@@ -93,11 +83,8 @@ const Cart = () => {
 
   const removeItem = async (itemId: string) => {
     try {
-      const { error } = await supabase.from("cart_items").delete().eq("id", itemId);
-
-      if (error) throw error;
-
-      setCartItems((prev) => prev.filter((item) => item.id !== itemId));
+      await cartService.removeItem(itemId);
+      setCartItems((prev) => prev.filter((item) => item._id !== itemId));
       toast({ title: "Item removed", description: "Item removed from cart successfully." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -105,7 +92,7 @@ const Cart = () => {
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.products.price * item.quantity, 0);
+    return cartItems.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
   };
 
   const handleOrderSubmit = async (e: React.FormEvent) => {
@@ -113,48 +100,20 @@ const Cart = () => {
     setSubmitting(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      const items = cartItems.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+      }));
 
       const totalAmount = calculateTotal();
 
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          user_id: session.user.id,
-          name: orderForm.name,
-          phone: orderForm.phone,
-          address: orderForm.address,
-          alternate_phone: orderForm.alternate_phone,
-          total_amount: totalAmount,
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = cartItems.map((item) => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.products.price,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // Clear cart
-      const { error: clearError } = await supabase
-        .from("cart_items")
-        .delete()
-        .eq("user_id", session.user.id);
-
-      if (clearError) throw clearError;
+      await ordersService.createOrder(
+        items,
+        orderForm.name,
+        orderForm.phone,
+        orderForm.address,
+        orderForm.alternate_phone
+      );
 
       toast({
         title: "Order placed!",
@@ -164,6 +123,7 @@ const Cart = () => {
       setShowOrderDialog(false);
       setCartItems([]);
       setOrderForm({ name: "", phone: "", address: "", alternate_phone: "" });
+      navigate("/");
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -193,22 +153,23 @@ const Cart = () => {
           <div className="space-y-4 mb-8">
             {cartItems.map((item) => (
               <div
-                key={item.id}
+                key={item._id}
                 className="flex gap-4 p-4 border rounded-lg bg-card"
               >
                 <img
-                  src={item.products.image_url || "/placeholder.svg"}
-                  alt={item.products.name}
+                  src={item.product?.image_url || "/placeholder.svg"}
+                  alt={item.product?.name}
                   className="w-24 h-24 object-cover rounded"
                 />
                 <div className="flex-1">
-                  <h3 className="font-semibold">{item.products.name}</h3>
-                  <p className="text-primary font-bold">₹{item.products.price}</p>
+                  <h3 className="font-semibold">{item.product?.name}</h3>
+                  <p className="text-muted-foreground text-sm">₹{item.product?.price || 0} per unit</p>
+                  <p className="text-primary font-bold mt-1">Subtotal: ₹{((item.product?.price || 0) * item.quantity).toFixed(2)}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <Button
                       size="icon"
                       variant="outline"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item._id, item.quantity - 1)}
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
@@ -216,7 +177,7 @@ const Cart = () => {
                     <Button
                       size="icon"
                       variant="outline"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item._id, item.quantity + 1)}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -225,7 +186,7 @@ const Cart = () => {
                 <Button
                   size="icon"
                   variant="destructive"
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => removeItem(item._id)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

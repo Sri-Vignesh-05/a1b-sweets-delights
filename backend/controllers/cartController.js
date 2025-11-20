@@ -6,7 +6,7 @@ exports.getCart = async function (req, res) {
 const userId = req.userId || req.query.user_id;
 if (!userId) return res.status(400).json({ message: 'user id required' });
 try {
-const items = await CartItem.find({ user_id: userId }).populate('product_id');
+const items = await CartItem.find({ user_id: userId }).populate('product_id', 'name price description image_url category rating');
 res.json(items);
 } catch (err) {
 res.status(500).json({ message: err.message });
@@ -23,11 +23,13 @@ const existing = await CartItem.findOne({ user_id: userId, product_id });
 if (existing) {
 existing.quantity = existing.quantity + quantity;
 await existing.save();
-return res.json(existing);
+const populated = await CartItem.findById(existing._id).populate('product_id', 'name price description image_url category rating');
+return res.json(populated);
 }
 const item = new CartItem({ user_id: userId, product_id, quantity });
 const saved = await item.save();
-res.status(201).json(saved);
+const populated = await CartItem.findById(saved._id).populate('product_id', 'name price description image_url category rating');
+res.status(201).json(populated);
 } catch (err) {
 res.status(400).json({ message: err.message });
 }
@@ -42,7 +44,7 @@ const item = await CartItem.findOneAndUpdate(
 { _id: req.params.id, user_id: userId },
 { quantity },
 { new: true }
-);
+).populate('product_id', 'name price description image_url category rating');
 if (!item) return res.status(404).json({ message: 'Not found' });
 res.json(item);
 } catch (err) {

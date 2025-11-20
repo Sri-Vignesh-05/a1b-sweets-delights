@@ -1,32 +1,35 @@
 import { useState, useEffect } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/api";
+
+export interface User {
+  id: string;
+  email?: string;
+  name?: string;
+}
 
 export const useAuth = () => {
-  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    // Check if user is logged in (token exists)
+    const token = authService.getToken();
+    const userId = authService.getUserId();
+    
+    if (token && userId) {
+      // User is logged in
+      setUser({ id: userId });
+    }
+    
+    setLoading(false);
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    authService.logout();
+    setUser(null);
   };
 
-  return { session, user, signOut };
+  const isAuthenticated = !!user || authService.isAuthenticated();
+
+  return { user, loading, signOut, isAuthenticated };
 };

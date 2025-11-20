@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,11 +16,9 @@ const Auth = () => {
 
   useEffect(() => {
     // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/");
-      }
-    });
+    if (authService.isAuthenticated()) {
+      navigate("/");
+    }
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -29,29 +27,20 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        await authService.login(email, password);
         toast({ title: "Welcome back!", description: "You have successfully logged in." });
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-        if (error) throw error;
+        await authService.signup(email, password);
         toast({ title: "Account created!", description: "You can now log in with your credentials." });
         setIsLogin(true);
+        setEmail("");
+        setPassword("");
       }
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Authentication failed",
         variant: "destructive",
       });
     } finally {
